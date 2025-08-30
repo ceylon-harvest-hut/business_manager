@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Work Types</h2>
+
+<form method="post">
+    <div class="form-group">
+        <label>Name</label>
+        <input class="form-control" type="text" name="name" required>
+    </div>
+    <div class="form-group">
+        <label>Description</label>
+        <input class="form-control" type="text" name="description">
+    </div>
+    <div class="form-group">
+        <label>Pay Type</label>
+        <select class="form-control" name="pay_type" required>
+            <option value="Hourly">Hourly</option>
+            <option value="Daily">Daily</option>
+            <option value="Weekly">Weekly</option>
+            <option value="Monthly">Monthly</option>
+        </select>
+    </div>
+    <div class="form-group">
+        <label>Rate</label>
+        <input class="form-control" type="number" step="0.01" name="rate" required>
+    </div>
+    <button class="btn btn-primary" type="submit">Add Work Type</button>
+</form>
+
+<hr>
+
+<h3>Existing Work Types</h3>
+<table class="table table-bordered">
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Description</th>
+            <th>Actions</th>
+            <th>Pay Type</th>
+            <th>Rate</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for wt in worktypes %}
+        <tr>
+            <td>{{ wt.name }}</td>
+            <td>{{ wt.description }}</td>
+            <td>{{ wt.pay_type }}</td>
+            <td>{{ wt.rate }}</td>
+            <td>
+                <form method="post" action="{{ url_for('delete_worktype', wt_id=wt.id) }}"
+                      onsubmit="return confirm('Are you sure you want to delete this work type?');">
+                    <button class="btn btn-danger btn-sm" type="submit">Delete</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}
+

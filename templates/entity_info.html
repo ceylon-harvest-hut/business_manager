@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Entity: {{ entity.name }}</h2>
+<p><strong>Email:</strong> {{ entity.email }} | 
+   <strong>Phone:</strong> {{ entity.phone }} | 
+   <strong>Address:</strong> {{ entity.address }}</p>
+
+<hr>
+
+{% for section in data %}
+  <h3>{{ section.relationship_type.name }}</h3>
+  <p>{{ section.relationship_type.description }}</p>
+
+  <h5>Transaction Summary</h5>
+  <p><strong>Total Amount:</strong> {{ section.total_amount }}</p>
+
+  <table class="table table-bordered">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Type</th>
+        <th>Amount</th>
+        <th>Date</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for t in section.transactions %}
+      <tr>
+        <td>{{ t.id }}</td>
+        <td>{{ t.transaction_type.name }}</td>
+        <td>{{ t.amount }}</td>
+        <td>{{ t.date }}</td>
+        <td>{{ t.description }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  {% if section.relationship_type.name.lower() == "employee" %}
+    <h5>Worklogs</h5>
+    <table class="table table-striped">
+      <thead>
+        <tr>
+          <th>Start Date</th>
+          <th>End Date</th>
+          <th>Work Units</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for log in section.worklogs %}
+        <tr>
+          <td>{{ log.start_date }}</td>
+          <td>{{ log.end_date }}</td>
+          <td>{{ log.work_units }}</td>
+          <td>{{ log.description or "" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% endif %}
+
+  <hr>
+{% endfor %}
+
+{% if data|length == 0 %}
+<p>This entity has no relationships yet.</p>
+{% endif %}
+{% endblock %}
+

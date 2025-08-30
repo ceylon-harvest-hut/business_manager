@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Transactions</h1>
+
+<!-- Add new transaction form -->
+<form method="POST" action="{{ url_for('add_transaction') }}" class="mb-4">
+    <div class="mb-2">
+        <label>Transaction Type</label>
+        <select id="transaction_type" name="transaction_type_id" class="form-select" required>
+            {% for t in transaction_types %}
+            <option value="{{ t.id }}">{{ t.name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <div class="mb-2">
+        <label>Business Relationship</label>
+        <select id="relationship_id" name="relationship_id" class="form-select" required>
+            {% for r in relationships %}
+            <option value="{{ r.id }}"
+                data-type="{{ r.relationship_type.name }}">{{ r.entity.name }} - {{ r.relationship_type.name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <!-- Payroll worklogs section (hidden unless Payroll selected) -->
+    <div id="worklogs-section" class="mb-2" style="display:none;">
+        <label>Unpaid Work Logs</label>
+        <div id="worklogs-list">
+            <!-- will be populated dynamically -->
+        </div>
+    </div>
+
+    <div class="mb-2">
+        <input type="number" step="0.01" id="amount" name="amount" placeholder="Amount" class="form-control" required>
+    </div>
+
+    <div class="mb-2">
+        <input type="date" name="date" class="form-control"
+           value="{{ datetime.utcnow().date() }}" required>
+    </div>
+    <div class="mb-2">
+        <input type="text" name="description" placeholder="Description" class="form-control">
+    </div>
+    <button type="submit" class="btn btn-primary">Add Transaction</button>
+</form>
+
+<!-- List all transactions -->
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Transaction Type</th>
+            <th>Business Relationship</th>
+            <th>Amount</th>
+            <th>Date</th>
+            <th>Description</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for txn in transactions %}
+        <tr>
+            <td>{{ txn.id }}</td>
+            <td>{{ txn.transaction_type.name }}</td>
+            <td>{{ txn.relationship.entity.name }} - {{ txn.relationship.relationship_type.name }}</td>
+            <td>{{ txn.amount }}</td>
+            <td>{{ txn.date }}</td>
+            <td>{{ txn.description }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const txnTypeSelect = document.getElementById("transaction_type");
+    const relationshipSelect = document.getElementById("relationship_id");
+    const worklogsSection = document.getElementById("worklogs-section");
+    const worklogsList = document.getElementById("worklogs-list");
+    const amountInput = document.getElementById("amount");
+
+    function togglePayrollUI() {
+        const selectedType = txnTypeSelect.options[txnTypeSelect.selectedIndex].text;
+        if (selectedType === "Payroll") {
+            // filter relationships -> only Employees
+            for (let opt of relationshipSelect.options) {
+                opt.style.display = (opt.dataset.type === "Employee") ? "block" : "none";
+            }
+            relationshipSelect.value = "";
+            // show worklogs section
+            worklogsSection.style.display = "block";
+            amountInput.readOnly = true;
+        } else {
+            // show all relationships
+            for (let opt of relationshipSelect.options) {
+                opt.style.display = "block";
+            }
+            worklogsSection.style.display = "none";
+            worklogsList.innerHTML = "";
+            amountInput.readOnly = false;
+        }
+    }
+
+    txnTypeSelect.addEventListener("change", togglePayrollUI);
+
+    // Fetch unpaid worklogs when employee selected
+    relationshipSelect.addEventListener("change", function () {
+        const selectedType = txnTypeSelect.options[txnTypeSelect.selectedIndex].text;
+        if (selectedType === "Payroll") {
+            const relId = relationshipSelect.value;
+            fetch(`/api/unpaid_worklogs/${relId}`)
+                .then(res => res.json())
+                .then(data => {
+                    worklogsList.innerHTML = "";
+                    let total = 0;
+                    data.forEach(log => {
+                        const div = document.createElement("div");
+                        div.innerHTML = `
+                          <input type="checkbox" name="worklogs" value="${log.id}" data-amount="${log.due_payment}">
+                          WorkLog #${log.id} (${log.start_date} → ${log.end_date}) | Due: ${log.due_payment}
+                        `;
+                        worklogsList.appendChild(div);
+                    });
+
+                    // recalc when checkbox toggled
+                    worklogsList.querySelectorAll("input[type=checkbox]").forEach(cb => {
+                        cb.addEventListener("change", function () {
+                            let sum = 0;
+                            worklogsList.querySelectorAll("input[type=checkbox]:checked").forEach(c => {
+                                sum += parseFloat(c.dataset.amount);
+                            });
+                            amountInput.value = sum.toFixed(2);
+                        });
+                    });
+                });
+        }
+    });
+
+    // init on load
+    togglePayrollUI();
+});
+</script>
+{% endblock %}
+

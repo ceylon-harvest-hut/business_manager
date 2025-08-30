@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Relationships</h1>
+<form method="POST" action="{{ url_for('add_relationship') }}" class="mb-4">
+    <div class="mb-2">
+        <label>Entity</label>
+        <select name="entity_id" class="form-select" required>
+            {% for e in entities %}
+            <option value="{{ e.id }}">{{ e.name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="mb-2">
+        <label>Relationship Type</label>
+        <select name="relationship_type_id" class="form-select" required>
+            {% for t in types %}
+            <option value="{{ t.id }}">{{ t.name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <button type="submit" class="btn btn-primary">Add Relationship</button>
+</form>
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Entity</th>
+            <th>Relationship Type</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for r in relationships %}
+        <tr>
+            <td>{{ r.id }}</td>
+            <td>{{ r.entity.name }}</td>
+            <td>{{ r.relationship_type.name }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+{% endblock %}
+

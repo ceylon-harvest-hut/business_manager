@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Entities</h1>
+
+<!-- Add new entity form -->
+<form method="POST" action="{{ url_for('add_entity') }}" class="mb-4">
+    <div class="mb-2">
+        <input type="text" name="name" placeholder="Name" class="form-control" required>
+    </div>
+    <div class="mb-2">
+        <input type="email" name="email" placeholder="Email" class="form-control" required>
+    </div>
+    <div class="mb-2">
+        <input type="text" name="phone" placeholder="Phone" class="form-control" required>
+    </div>
+    <div class="mb-2">
+        <input type="text" name="address" placeholder="Address" class="form-control">
+    </div>
+    <button type="submit" class="btn btn-primary">Add Entity</button>
+</form>
+
+<!-- List all entities -->
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Email</th>
+            <th>Phone</th>
+            <th>Address</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for entity in entities %}
+        <tr>
+            <td>{{ entity.id }}</td>
+            <td>
+                <a href="{{ url_for('entity_info', entity_id=entity.id) }}">
+                {{ entity.name }}
+              </a>
+            </td>
+            <td>{{ entity.email }}</td>
+            <td>{{ entity.phone }}</td>
+            <td>{{ entity.address }}</td>
+            <td>
+                <button class="btn btn-danger btn-sm delete-entity-btn" data-id="{{ entity.id }}">Delete</button>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+<script>
+document.querySelectorAll(".delete-entity-btn").forEach(button => {
+    button.addEventListener("click", function() {
+        const entityId = this.dataset.id;
+
+        fetch(`/delete_entity/${entityId}`, { method: 'POST' })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === "warning") {
+                if (confirm(`There are ${data.count} relationships linked to this entity. Deleting will remove all of them. Continue?`)) {
+                    // User confirmed, force delete
+                    fetch(`/force_delete_entity/${entityId}`, { method: 'POST' })
+                        .then(() => location.reload());
+                }
+            } else if (data.status === "deleted") {
+                location.reload();
+            }
+        });
+    });
+});
+</script>
+
+{% endblock %}
+

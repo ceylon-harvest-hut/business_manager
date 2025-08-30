@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Transaction Types</h1>
+
+<!-- Add new transaction type form -->
+<form method="POST" action="{{ url_for('add_transaction_type') }}" class="mb-4">
+    <div class="mb-2">
+        <input type="text" name="name" placeholder="Name" class="form-control" required>
+    </div>
+    <div class="mb-2">
+        <input type="text" name="description" placeholder="Description" class="form-control">
+    </div>
+    <button type="submit" class="btn btn-primary">Add Transaction Type</button>
+</form>
+
+<!-- List all transaction types -->
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Description</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for t in types %}
+        <tr>
+            <td>{{ t.id }}</td>
+            <td>{{ t.name }}</td>
+            <td>{{ t.description }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}
+

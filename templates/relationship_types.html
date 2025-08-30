@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Relationship Types</h1>
+
+<!-- Add new relationship type form -->
+<form method="POST" action="{{ url_for('add_relationship_type') }}" class="mb-4">
+    <div class="mb-2">
+        <input type="text" name="name" placeholder="Name" class="form-control" required>
+    </div>
+    <div class="mb-2">
+        <input type="text" name="description" placeholder="Description" class="form-control">
+    </div>
+    <button type="submit" class="btn btn-primary">Add Relationship Type</button>
+</form>
+
+<!-- List all relationship types -->
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Description</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for t in types %}
+        <tr>
+            <td>{{ t.id }}</td>
+            <td>{{ t.name }}</td>
+            <td>{{ t.description }}</td>
+            <td>
+                <button class="btn btn-danger btn-sm delete-btn" data-id="{{ t.id }}">Delete</button>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+<script>
+document.querySelectorAll(".delete-btn").forEach(button => {
+    button.addEventListener("click", function() {
+        const typeId = this.dataset.id;
+
+        fetch(`/delete_relationship_type/${typeId}`, { method: 'POST' })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === "warning") {
+                if (confirm(`There are ${data.count} relationships using this type. Deleting will remove all of them. Continue?`)) {
+                    // User confirmed, force delete
+                    fetch(`/force_delete_relationship_type/${typeId}`, { method: 'POST' })
+                        .then(() => location.reload());
+                }
+            } else if (data.status === "deleted") {
+                location.reload();
+            }
+        });
+    });
+});
+</script>
+
+{% endblock %}
+
