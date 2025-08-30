@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-4">
+  <h2>Supply Logs</h2>
+  <a href="{{ url_for('add_supply_log') }}" class="btn btn-primary mb-3">Add Supply Log</a>
+  <table class="table table-bordered">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Date</th>
+        <th>Supplier</th>
+        <th>Unit Price</th>
+        <th>Units</th>
+        <th>Amount</th>
+        <th>Paid</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for log in logs %}
+      <tr>
+        <td>{{ log.id }}</td>
+        <td>{{ log.date.strftime('%Y-%m-%d') }}</td>
+        <td>{{ log.supplier.entity.name }}</td>
+        <td>{{ log.unit_price }}</td>
+        <td>{{ log.units }}</td>
+        <td>{{ log.amount }}</td>
+        <td>{{ "Yes" if log.payment else "No" }}</td>
+        <td>{{ log.description or "-" }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

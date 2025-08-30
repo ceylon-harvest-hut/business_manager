@@ -119,6 +119,40 @@ class SupplyType(db.Model):
     def __repr__(self):
         return f"<SupplyType {self.name}>"
 
+class SupplyLog(db.Model):
+    __tablename__ = "supply_log"
+
+    id = db.Column(db.Integer, primary_key=True)
+    date = db.Column(db.Date, nullable=False)
+
+    supplier_id = db.Column(db.Integer, db.ForeignKey("relationship.id"), nullable=False)
+    supplier = db.relationship("Relationship", backref="supply_logs")
+
+    supply_type_id = db.Column(db.Integer, db.ForeignKey("supply_type.id"), nullable=False)
+    supply_type = db.relationship("SupplyType", backref="supply_logs")
+
+    unit_price = db.Column(db.Float, nullable=False)
+    units = db.Column(db.Float, nullable=False)
+    amount = db.Column(db.Float, nullable=False)
+    description = db.Column(db.Text, nullable=True)
+
+    # Many-to-one: each SupplyLog belongs to one SupplyPayment
+    payment_id = db.Column(db.Integer, db.ForeignKey("supply_payment.id"), nullable=True)
+    payment = db.relationship("SupplyPayment", back_populates="supply_logs")
+
+
+class SupplyPayment(db.Model):
+    __tablename__ = "supply_payment"
+
+    id = db.Column(db.Integer, primary_key=True)
+    transaction_id = db.Column(db.Integer, db.ForeignKey("transaction.id"), nullable=False)
+
+    transaction = db.relationship("Transaction", backref="supply_payment")
+
+    # One payment can cover multiple supply logs
+    supply_logs = db.relationship("SupplyLog", back_populates="payment")
+
+
 
 
 class Payroll(db.Model):
@@ -533,7 +567,6 @@ def worklogs():
         return redirect(url_for('worklogs'))
 
     logs = WorkLog.query.all()
-    print(logs)
     return render_template('worklogs.html', work_types=work_types,employees=employees, logs=logs, current_date=current_date)
 
 @app.route("/supply_types", methods=["GET", "POST"])
@@ -563,6 +596,71 @@ def supply_types():
 
     supply_types = SupplyType.query.all()
     return render_template("supply_types.html", supply_types=supply_types)
+
+@app.route("/supply_logs")
+def supply_logs():
+    logs = SupplyLog.query.all()
+    return render_template("supply_logs.html", logs=logs, title="Supply Logs")
+
+@app.route("/supply_logs/add", methods=["GET", "POST"])
+def add_supply_log():
+    suppliers = Relationship.query.filter_by(
+        relationship_type_id=RelationshipType.query.filter_by(name="Supplier").first().id
+    ).all()
+    supply_types = SupplyType.query.all()
+
+    if request.method == "POST":
+        date = request.form["date"]
+        supplier_id = request.form["supplier_id"]
+        supply_type_id = request.form["supply_type"]
+        unit_price = float(request.form["unit_price"])
+        units = float(request.form["units"])
+        amount = unit_price * units
+        description = request.form.get("description")
+        is_paid = "is_paid" in request.form  # checkbox
+
+        log = SupplyLog(
+            date=datetime.strptime(date, "%Y-%m-%d"),
+            supplier_id=supplier_id,
+            supply_type_id=supply_type_id,
+            unit_price=unit_price,
+            units=units,
+            amount=amount,
+            description=description
+        )
+
+        if is_paid:
+            # 1. Find transaction type "Supply Payments"
+            tx_type = TransactionType.query.filter_by(name="Supply Payments").first()
+
+            # 2. Create Transaction
+            transaction = Transaction(
+                date=datetime.strptime(date, "%Y-%m-%d"),
+                transaction_type_id=tx_type.id,
+                relationship_id=supplier_id,
+                amount=amount,
+                description=f"Supply payment for {units} units @ {unit_price} (Supplier {supplier_id})"
+            )
+
+            # 3. Create SupplyPayment
+            supply_payment = SupplyPayment(transaction=transaction)
+
+            # 4. Link SupplyLog to SupplyPayment
+            log.payment = supply_payment
+
+            db.session.add(transaction)
+            db.session.add(supply_payment)
+
+        db.session.add(log)
+        db.session.commit()
+        return redirect(url_for("supply_logs"))
+
+    return render_template(
+        "add_supply_log.html",
+        suppliers=suppliers,
+        supply_types=supply_types,
+        title="Add Supply Log"
+    )
 
 
 @app.before_first_request
@@ -595,7 +693,8 @@ def create_default_worktypes():
 @app.before_first_request
 def create_default_transactiontypes():
     predefined_types = [
-        {"name": "Payroll", "description": "Payments for employee work logs"}
+        {"name": "Payroll", "description": "Payments for employee work logs"},
+        {"name": "Supply Payments", "description" : "Payments for supplier done for supply log entries"}
     ]
 
     for t in predefined_types:
