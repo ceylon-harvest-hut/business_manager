@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block content %}
+{% if error %}
+<div class="alert alert-danger">{{ error }}</div>
+{% endif %}
+<div class="container mt-4">
+    <h2>Supply Types</h2>
+
+    <form method="POST" class="mb-3">
+        <div class="form-group">
+            <label for="name">Supply Type Name</label>
+            <input type="text" name="name" class="form-control" required>
+        </div>
+
+        <div class="form-group">
+            <label for="description">Description</label>
+            <input type="text" name="description" class="form-control">
+        </div>
+
+        <div class="form-group">
+            <label for="parent_id">Parent Supply Type (Optional)</label>
+            <select name="parent_id" class="form-control">
+                <option value="">-- None --</option>
+                {% for st in supply_types %}
+                <option value="{{ st.id }}">{{ st.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <button type="submit" class="btn btn-primary">Add Supply Type</button>
+    </form>
+
+    <h3>Existing Supply Types</h3>
+    <!-- Table of Supply Types -->
+    <table class="table table-striped table-bordered mt-3">
+        <thead class="table-dark">
+            <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Description</th>
+                <th>Parent</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for st in supply_types %}
+            <tr>
+                <td>{{ st.id }}</td>
+                <td>{{ st.name }}</td>
+                <td>{{ st.description or '-' }}</td>
+                <td>
+                    {% if st.parent %}
+                        {{ st.parent.name }}
+                    {% else %}
+                        None
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table> 
+</div>
+{% endblock %}

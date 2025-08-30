@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for
+from flask import Flask, render_template, request, redirect, url_for, flash
 from flask_sqlalchemy import SQLAlchemy
 from flask import jsonify
 from sqlalchemy import func
@@ -101,6 +101,25 @@ class WorkLog(db.Model):
         if self.work_type:
             return self.work_units * self.work_type.rate
         return 0.0
+
+class SupplyType(db.Model):
+    __tablename__ = "supply_type"
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), unique=True, nullable=False)
+    description = db.Column(db.String(200))
+
+    parent_id = db.Column(
+        db.Integer,
+        db.ForeignKey("supply_type.id", name="fk_supplytype_parent"),
+        nullable=True
+    )
+    parent = db.relationship("SupplyType", remote_side=[id], backref="children")
+
+    def __repr__(self):
+        return f"<SupplyType {self.name}>"
+
+
 
 class Payroll(db.Model):
     __tablename__ = "payroll"
@@ -517,8 +536,33 @@ def worklogs():
     print(logs)
     return render_template('worklogs.html', work_types=work_types,employees=employees, logs=logs, current_date=current_date)
 
+@app.route("/supply_types", methods=["GET", "POST"])
+def supply_types():
+    if request.method == "POST":
+        name = request.form["name"]
+        description = request.form["description"]
+        parent_id = request.form.get("parent_id")
 
+        existing = SupplyType.query.filter_by(name=name).first()
+        if existing:
+            supply_types = SupplyType.query.all()
+            return render_template(
+                "supply_types.html",
+                supply_types=supply_types,
+                error="Supply Type with this name already exists!"
+            )
+        else:
+            supply_type = SupplyType(
+                name=name,
+                description=description,
+                parent_id=parent_id if parent_id else None
+            )
+            db.session.add(supply_type)
+            db.session.commit()
+            return redirect(url_for("supply_types"))
 
+    supply_types = SupplyType.query.all()
+    return render_template("supply_types.html", supply_types=supply_types)
 
 
 @app.before_first_request
