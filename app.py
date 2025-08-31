@@ -1,11 +1,13 @@
 from flask import Flask, render_template, request, redirect, url_for, flash
 from flask_sqlalchemy import SQLAlchemy
 from flask import jsonify
+from flask import abort
 from sqlalchemy import func
 from datetime import datetime
 from datetime import date
 from sqlalchemy import Table, Column, Integer, String, Float, Date, MetaData
 from sqlalchemy import event
+from sqlalchemy import and_
 from flask_migrate import Migrate
 
 app = Flask(__name__)
@@ -88,8 +90,10 @@ class WorkLog(db.Model):
     relationship_id = db.Column(db.Integer, db.ForeignKey('relationship.id'), nullable=False)  
     work_units = db.Column(db.Float, nullable=False)
     due_payment = db.Column(db.Float, nullable=False)
-    transaction_id = db.Column(db.Integer, db.ForeignKey('transaction.id'), nullable=True)
-    is_paid = db.Column(db.Boolean, default=False)
+    # Link each worklog to a payroll (optional until paid)
+    payroll_id = db.Column(db.Integer, db.ForeignKey("payroll.id"), nullable=True)
+    payroll = db.relationship("Payroll", back_populates="worklogs") 
+
     description = db.Column(db.String(250)) 
 
     work_type = db.relationship("WorkType", backref="work_logs")
@@ -160,10 +164,9 @@ class Payroll(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     transaction_id = db.Column(db.Integer, db.ForeignKey("transaction.id"), nullable=False)
-    worklog_id = db.Column(db.Integer, db.ForeignKey("work_log.id"), nullable=False)
 
-    transaction = db.relationship("Transaction", backref="payroll_entries")
-    worklog = db.relationship("WorkLog", backref="payroll_entries")
+    transaction = db.relationship("Transaction", backref="payroll")
+    worklogs = db.relationship("WorkLog", back_populates="payroll")
 
 
 @app.route("/")
@@ -322,14 +325,13 @@ def add_transaction():
         db.session.add(transaction)
         db.session.flush()  # so transaction.id is available
 
+        # create payroll entry linked to this transaction
+        payroll_entry = Payroll(transaction_id=transaction.id)
+        db.session.add(payroll_entry)
+        db.session.flush()  # so payroll_entry.id is available
+
         for log in selected_logs:
-            payroll_entry = Payroll(
-                transaction_id=transaction.id,
-                worklog_id=log.id
-            )
-            db.session.add(payroll_entry)
-            log.is_paid = True
-            log.transaction_id = transaction.id
+            log.payroll_id = payroll_entry.id
 
     # --- Other transaction types ---
     else:
@@ -521,7 +523,18 @@ def delete_worktype(wt_id):
 
 @app.route("/api/unpaid_worklogs/<int:relationship_id>")
 def api_unpaid_worklogs(relationship_id):
-    logs = WorkLog.query.filter_by(relationship_id=relationship_id, is_paid=False).all()
+    #logs = WorkLog.query.filter_by(relationship_id=relationship_id, is_paid=False).all()
+    logs = (
+        WorkLog.query
+        .filter(
+            and_(
+                WorkLog.relationship_id == relationship_id,
+                WorkLog.payroll_id.is_(None)
+            )
+        )
+        .all()
+    )
+    print(logs)
     return jsonify([{
         "id": log.id,
         "start_date": log.start_date.strftime("%Y-%m-%d"),
@@ -553,6 +566,8 @@ def worklogs():
 
         description = request.form.get("description", "")
 
+        paid = request.form.get("paid") == "1"
+
         new_log = WorkLog(
             start_date=start_date,
             end_date=end_date,
@@ -563,6 +578,29 @@ def worklogs():
             description=description
         )
         db.session.add(new_log)
+        db.session.flush()
+
+        if paid:
+            txn_type = TransactionType.query.filter_by(name="Payroll").first()
+            if not txn_type:
+                abort(400, "Payroll transaction type not found")
+
+            transaction = Transaction(
+                transaction_type_id=txn_type.id,
+                relationship_id=relationship_id,
+                amount=due_payment,
+                date=datetime.utcnow(),
+                description=f"Auto payroll for WorkLog #{new_log.id}"
+            )
+            db.session.add(transaction)
+            db.session.flush()
+
+            # Create payroll entry linked to this transaction
+            payroll_entry = Payroll(transaction_id=transaction.id)
+            db.session.add(payroll_entry)
+            db.session.flush()
+            new_log.payroll = payroll_entry   # sets payroll_id in WorkLog
+
         db.session.commit()
         return redirect(url_for('worklogs'))
 
